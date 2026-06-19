@@ -1,0 +1,94 @@
+﻿name: CI — Vendor Service
+
+permissions:
+  contents: write
+  actions: read
+  checks: read
+  security-events: write
+
+on:
+  push:
+    branches: [dev, production]
+  pull_request:
+    branches: [dev, production]
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      is_production: ${{ steps.tag.outputs.is_production }}
+      environment: ${{ steps.tag.outputs.environment }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve image tag and environment
+        id: tag
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          if [[ "$BRANCH" == "production" ]]; then
+            echo "is_production=true" >> $GITHUB_OUTPUT
+            echo "environment=production" >> $GITHUB_OUTPUT
+            latest_tag=$(git tag -l 'v*.*.*' | sort -V | tail -n 1)
+            if [[ -z "$latest_tag" ]]; then latest_tag="v0.0.0"; fi
+            version=${latest_tag#v}
+            IFS='.' read -ra parts <<< "$version"
+            major=${parts[0]:-0}; minor=${parts[1]:-0}; patch=${parts[2]:-0}
+            commit_msg=$(git log -1 --pretty=%B)
+            if echo "$commit_msg" | grep -qiE "BREAKING CHANGE|!:"; then
+              major=$((major + 1)); minor=0; patch=0
+            elif echo "$commit_msg" | grep -qiE "^feat(\(.+\))?:"; then
+              minor=$((minor + 1)); patch=0
+            else
+              patch=$((patch + 1))
+            fi
+            NEW_TAG="v${major}.${minor}.${patch}"
+            echo "tag=${NEW_TAG}" >> $GITHUB_OUTPUT
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "$NEW_TAG"
+            git push origin "$NEW_TAG" || echo "Tag may already exist"
+          else
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+            echo "tag=dev-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "is_production=false" >> $GITHUB_OUTPUT
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-push:
+    name: Build, Scan & Push
+    needs: [prepare]
+    uses: cognidispatch/cognidispatch-reusable-workflows/.github/workflows/_build_push.yml@main
+    with:
+      image_name: cogni-vendor-service
+      tag: ${{ needs.prepare.outputs.tag }}
+      is_production: ${{ needs.prepare.outputs.is_production }}
+      dockerfile_path: Dockerfile
+      docker_context: .
+      service_name: vendor-service
+      sonar_project_key: cogni-vendor-service
+    secrets:
+      ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+      ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  update-helm:
+    name: Update Helm Chart
+    needs: [prepare, build-and-push]
+    uses: cognidispatch/cognidispatch-reusable-workflows/.github/workflows/_update_helm.yml@main
+    with:
+      service-name: vendor-service
+      helm-value-key: vendorService
+      image-tag: ${{ needs.prepare.outputs.tag }}
+      environment: ${{ needs.prepare.outputs.environment }}
+      require-approval: ${{ needs.prepare.outputs.is_production == 'true' }}
+    secrets:
+      HELM_REPO_PAT: ${{ secrets.HELM_REPO_PAT }}
