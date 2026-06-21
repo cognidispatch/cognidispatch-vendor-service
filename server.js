@@ -11,9 +11,16 @@ app.use(express.json());
 app.get('/api/vendors/health', (req, res) => res.json({ status: "online", service: "vendor-service" }));
 app.use('/api/vendors', vendorController);
 
+const { startDispatchSubscriber } = require('./serviceBusSubscriber');
+
 const PORT = process.env.PORT || 5002;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Vendor Service listening on port ${PORT}`);
+
+  // Start Service Bus subscriber in background after server is ready
+  startDispatchSubscriber().catch(err =>
+    console.error('[ServiceBus Subscriber] Failed to start:', err.message)
+  );
 });
 
 // Trigger rebuild for semantic tag update
