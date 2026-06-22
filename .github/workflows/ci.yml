@@ -1,6 +1,7 @@
 name: CI — Vendor Service
 
 permissions:
+  id-token: write
   contents: write
   actions: read
   checks: read
