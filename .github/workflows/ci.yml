@@ -63,7 +63,7 @@ jobs:
     needs: [prepare]
     permissions:
       id-token: write
-      contents: read
+      contents: write
     uses: cognidispatch/cognidispatch-reusable-workflows/.github/workflows/_build_push.yml@main
     with:
       image_name: cogni-vendor-service
