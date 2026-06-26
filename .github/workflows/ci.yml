@@ -61,6 +61,9 @@ jobs:
   build-and-push:
     name: Build, Scan & Push
     needs: [prepare]
+    permissions:
+      id-token: write
+      contents: write
     uses: cognidispatch/cognidispatch-reusable-workflows/.github/workflows/_build_push.yml@main
     with:
       image_name: cogni-vendor-service
@@ -89,5 +92,4 @@ jobs:
       image-tag: ${{ needs.prepare.outputs.tag }}
       environment: ${{ needs.prepare.outputs.environment }}
       require-approval: ${{ needs.prepare.outputs.is_production == 'true' }}
-    secrets:
-      HELM_REPO_PAT: ${{ secrets.HELM_REPO_PAT }}
+    secrets: inherit
