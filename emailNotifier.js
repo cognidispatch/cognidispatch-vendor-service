@@ -37,131 +37,205 @@ async function sendDispatchNotification({ vendorEmail, vendorName, dispatch }) {
   const transporter = getTransporter();
   if (!transporter) return;
 
-  const urgencyBadge = dispatch.urgency === 'HIGH' ? '🔴 HIGH' :
-                       dispatch.urgency === 'MEDIUM' ? '🟡 MEDIUM' : '🟢 LOW';
+  // ── Urgency config ────────────────────────────────────────────────────────
+  const urgencyMap = {
+    HIGH:   { label: '🔴 HIGH PRIORITY',   bg: '#FEE2E2', color: '#991B1B', border: '#F87171', icon: '🚨' },
+    MEDIUM: { label: '🟡 MEDIUM PRIORITY', bg: '#FEF3C7', color: '#92400E', border: '#FCD34D', icon: '⚠️' },
+    LOW:    { label: '🟢 LOW PRIORITY',    bg: '#D1FAE5', color: '#065F46', border: '#34D399', icon: '✅' },
+  };
+  const urgency = urgencyMap[dispatch.urgency] || urgencyMap.MEDIUM;
 
-  const urgencyBg = dispatch.urgency === 'HIGH' ? '#7f1d1d' : dispatch.urgency === 'MEDIUM' ? '#78350f' : '#064e3b';
-  const urgencyColor = dispatch.urgency === 'HIGH' ? '#fca5a5' : dispatch.urgency === 'MEDIUM' ? '#fde68a' : '#a7f3d0';
-  const urgencyBorder = dispatch.urgency === 'HIGH' ? '#b91c1c' : dispatch.urgency === 'MEDIUM' ? '#b45309' : '#047857';
+  // ── Category icon map ────────────────────────────────────────────────────
+  const categoryIcons = {
+    PLUMBING:     '🔧', ELECTRICAL: '⚡', HVAC:      '❄️',
+    LOCKSMITH:    '🔐', ROOFING:    '🏠', PEST:      '🐛',
+    CLEANING:     '🧹', MOVING:     '📦', APPLIANCE: '🔌',
+    LANDSCAPING:  '🌿', PAINTING:   '🎨', GENERAL:   '🛠️',
+  };
+  const categoryIcon = categoryIcons[dispatch.category?.toUpperCase()] || '🛠️';
+
+  const formattedTime = new Date(dispatch.timestamp).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
 
   const mailOptions = {
     from: `"CogniDispatch Alerts" <${process.env.SMTP_USER}>`,
     to: vendorEmail,
-    subject: `🚨 New Dispatch Request — ${dispatch.category} [${dispatch.urgency}]`,
+    subject: `${urgency.icon} New Dispatch — ${dispatch.category} [${dispatch.urgency}] · ${dispatch.dispatchId}`,
     html: `
-      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #0b0f19; padding: 40px 10px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-        <tr>
-          <td align="center">
-            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; background: #111827; border: 1px solid #1f2937; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.45);">
-              <!-- Header -->
-              <tr>
-                <td align="center" style="background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%); padding: 35px 20px; border-bottom: 1px solid #1f2937;">
-                  <div style="font-size: 26px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; margin: 0; text-shadow: 0 0 15px rgba(99,102,241,0.55);">
-                    <span style="color: #6366f1;">⚡</span> COGNI<span style="color: #6366f1;">DISPATCH</span>
-                  </div>
-                  <p style="color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 2.5px; margin: 12px 0 0 0; font-weight: 700;">Immediate Responder Alert</p>
-                </td>
-              </tr>
-              <!-- Content -->
-              <tr>
-                <td style="padding: 40px 35px; color: #e2e8f0; font-size: 15px; line-height: 24px;">
-                  <p style="margin: 0 0 16px 0; font-size: 16px;">Hello <strong style="color: #ffffff; font-weight: 700;">${vendorName}</strong>,</p>
-                  <p style="margin: 0 0 30px 0; color: #94a3b8;">A new emergency dispatch request has been routed to your unit. Please review the details below and act accordingly.</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CogniDispatch Alert</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F0F4FF;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
 
-                  <!-- Details Card -->
-                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #1e293b; border-radius: 12px; margin-bottom: 35px; border: 1px solid #334155; box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);">
-                    <tr>
-                      <td style="padding: 24px;">
-                        
-                        <!-- Detail Row -->
-                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 16px;">
-                          <tr>
-                            <td style="color: #94a3b8; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; width: 40%;">Dispatch ID</td>
-                            <td style="color: #ffffff; font-family: monospace; font-size: 14px; font-weight: 600;">${dispatch.dispatchId}</td>
-                          </tr>
-                        </table>
+  <!-- Outer wrapper -->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F0F4FF;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
 
-                        <!-- Detail Row -->
-                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 16px;">
-                          <tr>
-                            <td style="color: #94a3b8; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; width: 40%;">Category</td>
-                            <td style="color: #6366f1; font-weight: 700; font-size: 15px;">${dispatch.category}</td>
-                          </tr>
-                        </table>
+          <!-- ═══ HEADER ═══ -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#4F46E5 0%,#7C3AED 50%,#EC4899 100%);border-radius:20px 20px 0 0;padding:40px 32px 32px;text-align:center;">
+              <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:50px;padding:8px 20px;margin-bottom:16px;">
+                <span style="color:rgba(255,255,255,0.9);font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;">Live Dispatch Alert</span>
+              </div>
+              <div style="font-size:30px;font-weight:900;color:#ffffff;letter-spacing:-1px;line-height:1.1;margin-bottom:6px;">
+                ⚡ CogniDispatch
+              </div>
+              <div style="color:rgba(255,255,255,0.75);font-size:13px;font-weight:500;letter-spacing:0.5px;">
+                Emergency Responder Network
+              </div>
+            </td>
+          </tr>
 
-                        <!-- Detail Row -->
-                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 16px;">
-                          <tr>
-                            <td style="color: #94a3b8; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; width: 40%;">Urgency</td>
-                            <td>
-                              <span style="background-color: ${urgencyBg}; color: ${urgencyColor}; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; border: 1px solid ${urgencyBorder}; display: inline-block; letter-spacing: 0.5px;">
-                                ${urgencyBadge}
-                              </span>
-                            </td>
-                          </tr>
-                        </table>
+          <!-- ═══ URGENCY BANNER ═══ -->
+          <tr>
+            <td style="background:${urgency.bg};border-left:5px solid ${urgency.border};padding:14px 24px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <span style="font-size:13px;font-weight:800;color:${urgency.color};letter-spacing:1px;text-transform:uppercase;">${urgency.label}</span>
+                  </td>
+                  <td align="right">
+                    <span style="font-size:11px;color:${urgency.color};font-weight:600;opacity:0.8;">${formattedTime}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-                        <!-- Detail Row -->
-                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 16px;">
-                          <tr>
-                            <td style="color: #94a3b8; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; width: 40%;">Payout Amount</td>
-                            <td style="color: #10b981; font-weight: 800; font-size: 18px;">₹${dispatch.amount}</td>
-                          </tr>
-                        </table>
+          <!-- ═══ MAIN CARD BODY ═══ -->
+          <tr>
+            <td style="background:#ffffff;padding:32px 28px;">
 
-                        <!-- Detail Row -->
-                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 16px;">
-                          <tr>
-                            <td style="color: #94a3b8; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; width: 40%;">Homeowner</td>
-                            <td style="color: #ffffff; font-weight: 600;">${dispatch.userName}</td>
-                          </tr>
-                        </table>
+              <!-- Greeting -->
+              <p style="margin:0 0 6px 0;font-size:22px;font-weight:800;color:#1E1B4B;">
+                Hello, ${vendorName} 👋
+              </p>
+              <p style="margin:0 0 28px 0;font-size:14px;color:#6B7280;line-height:1.6;">
+                A new emergency dispatch has been routed to your unit. Review the details below and respond promptly.
+              </p>
 
-                        <!-- Divider -->
-                        <div style="height: 1px; background-color: #334155; margin: 18px 0;"></div>
+              <!-- ═══ 4 STAT CARDS (2x2 grid via table) ═══ -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+                <tr>
+                  <!-- Card 1: Dispatch ID -->
+                  <td width="48%" valign="top" style="padding-right:8px;padding-bottom:12px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#EEF2FF,#E0E7FF);border-radius:14px;border:1px solid #C7D2FE;overflow:hidden;">
+                      <tr>
+                        <td style="padding:18px 16px;">
+                          <div style="font-size:10px;font-weight:700;color:#6366F1;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;">📋 Dispatch ID</div>
+                          <div style="font-size:13px;font-weight:800;color:#3730A3;font-family:monospace;word-break:break-all;">${dispatch.dispatchId}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
 
-                        <!-- Summary Row -->
-                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-                          <tr>
-                            <td style="color: #94a3b8; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; padding-bottom: 6px; display: block;">Incident Summary</td>
-                          </tr>
-                          <tr>
-                            <td style="color: #f1f5f9; font-style: italic; font-size: 14px; line-height: 22px;">"${dispatch.summary}"</td>
-                          </tr>
-                        </table>
+                  <!-- Card 2: Category -->
+                  <td width="48%" valign="top" style="padding-left:8px;padding-bottom:12px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#F5F3FF,#EDE9FE);border-radius:14px;border:1px solid #DDD6FE;overflow:hidden;">
+                      <tr>
+                        <td style="padding:18px 16px;">
+                          <div style="font-size:10px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;">${categoryIcon} Category</div>
+                          <div style="font-size:15px;font-weight:800;color:#4C1D95;">${dispatch.category}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <!-- Card 3: Payout -->
+                  <td width="48%" valign="top" style="padding-right:8px;padding-bottom:12px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#ECFDF5,#D1FAE5);border-radius:14px;border:1px solid #A7F3D0;overflow:hidden;">
+                      <tr>
+                        <td style="padding:18px 16px;">
+                          <div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;">💰 Payout</div>
+                          <div style="font-size:22px;font-weight:900;color:#065F46;">₹${dispatch.amount}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
 
-                      </td>
-                    </tr>
-                  </table>
+                  <!-- Card 4: Homeowner -->
+                  <td width="48%" valign="top" style="padding-left:8px;padding-bottom:12px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#FFF7ED,#FFEDD5);border-radius:14px;border:1px solid #FED7AA;overflow:hidden;">
+                      <tr>
+                        <td style="padding:18px 16px;">
+                          <div style="font-size:10px;font-weight:700;color:#EA580C;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;">👤 Homeowner</div>
+                          <div style="font-size:15px;font-weight:800;color:#7C2D12;">${dispatch.userName}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
 
-                  <!-- Action Button -->
-                  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-                    <tr>
-                      <td align="center" style="padding: 10px 0 20px 0;">
-                        <a href="https://cognidispatch.g0ku1.online" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; padding: 16px 36px; border-radius: 8px; text-decoration: none; font-size: 14px; font-weight: 700; letter-spacing: 0.5px; box-shadow: 0 4px 18px rgba(79, 70, 229, 0.45); border: 1px solid #6366f1;">
-                          OPEN COGNIDISPATCH APP →
-                        </a>
-                      </td>
-                    </tr>
-                  </table>
+              <!-- ═══ INCIDENT SUMMARY CARD ═══ -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+                <tr>
+                  <td style="background:linear-gradient(135deg,#F8FAFC,#F1F5F9);border-radius:14px;border:1px solid #E2E8F0;border-left:4px solid #6366F1;padding:20px 20px;">
+                    <div style="font-size:10px;font-weight:700;color:#6366F1;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;">📝 Incident Summary</div>
+                    <div style="font-size:14px;color:#374151;line-height:1.7;font-style:italic;">"${dispatch.summary}"</div>
+                  </td>
+                </tr>
+              </table>
 
-                  <!-- Time footer -->
-                  <p style="color: #64748b; font-size: 11px; text-align: center; margin: 25px 0 0 0; letter-spacing: 0.25px;">
-                    Alert sent at: ${new Date(dispatch.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
-                  </p>
-                </td>
-              </tr>
-              <!-- Footer -->
-              <tr>
-                <td style="background-color: #0f172a; padding: 22px; text-align: center; font-size: 11px; color: #475569; border-top: 1px solid #1f2937; line-height: 18px;">
-                  This is an automated operational transmission from CogniDispatch.<br>
-                  Please do not reply directly to this mail.
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
+              <!-- ═══ CTA BUTTON ═══ -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <a href="https://cognidispatch.g0ku1.online"
+                       style="display:inline-block;background:linear-gradient(135deg,#4F46E5,#7C3AED);color:#ffffff;text-decoration:none;font-size:15px;font-weight:800;padding:16px 48px;border-radius:50px;letter-spacing:0.5px;box-shadow:0 8px 24px rgba(79,70,229,0.4);">
+                      Open CogniDispatch App →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- ═══ DIVIDER INFO ROW ═══ -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#4F46E5,#7C3AED);padding:18px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <span style="font-size:12px;color:rgba(255,255,255,0.9);font-weight:600;">🕐 Dispatched at ${formattedTime}</span>
+                  </td>
+                  <td align="right">
+                    <span style="font-size:12px;color:rgba(255,255,255,0.7);">IST · CogniDispatch Network</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ═══ FOOTER ═══ -->
+          <tr>
+            <td style="background:#1E1B4B;border-radius:0 0 20px 20px;padding:24px 28px;text-align:center;">
+              <p style="margin:0 0 8px 0;font-size:13px;font-weight:700;color:#A5B4FC;">⚡ CogniDispatch</p>
+              <p style="margin:0;font-size:11px;color:#6B7280;line-height:1.6;">
+                This is an automated operational alert. Please do not reply to this email.<br/>
+                © 2026 CogniDispatch · Emergency Responder Network
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>
     `
   };
 
