@@ -23,4 +23,4 @@ app.listen(PORT, '0.0.0.0', () => {
   );
 });
 
-// Trigger rebuild for semantic tag update
+// Trigger rebuild for Service Bus activation
